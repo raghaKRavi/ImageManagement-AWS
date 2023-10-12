@@ -1,20 +1,23 @@
 package com.storage.ImageManagement.controller;
 
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.storage.ImageManagement.exceptions.FileDownloadException;
 import com.storage.ImageManagement.exceptions.FileEmptyException;
 import com.storage.ImageManagement.exceptions.FileUploadException;
 import com.storage.ImageManagement.responseData.APIResponse;
 import com.storage.ImageManagement.service.serviceImpl.ImageManagementServiceImpl;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.lang.NonNull;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.apache.commons.io.FilenameUtils;
 
+import javax.validation.constraints.NotBlank;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -56,5 +59,46 @@ public class ImageManagementController {
 
       return new ResponseEntity<>(apiResponse, HttpStatus.BAD_REQUEST);
     }
+  }
+
+  @GetMapping("/download")
+  public ResponseEntity<?> downloadFile(@RequestParam("fileName") @NonNull @NotBlank String fileName) throws IOException, FileDownloadException {
+    Object response = imageManagementService.downloadFile(fileName);
+    if(response != null){
+      return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION,
+          "attachment; filename=\"" + fileName + "\"").body(response);
+    }
+    else{
+      APIResponse apiResponse = APIResponse.builder()
+          .message("File could not be downloaded")
+          .isSuccessful(false)
+          .statusCode(400)
+          .build();
+      return new ResponseEntity(apiResponse, HttpStatus.NOT_FOUND);
+    }
+  }
+
+  @GetMapping("/allFiles")
+  public ResponseEntity<?> getAllFiles(){
+    List<S3ObjectSummary> allFilesResponse = imageManagementService.allFiles();
+    if(!allFilesResponse.isEmpty()) {
+      APIResponse apiResponse = APIResponse.builder()
+          .message("No of files retrieved: " + allFilesResponse.size())
+          .statusCode(200)
+          .isSuccessful(true)
+          .data(allFilesResponse)
+          .build();
+
+      return new ResponseEntity<>(apiResponse, HttpStatus.OK);
+    } else {
+      APIResponse apiResponse = APIResponse.builder()
+          .message("No data available")
+          .statusCode(204)
+          .isSuccessful(false)
+          .build();
+
+      return new ResponseEntity<>(apiResponse, HttpStatus.NO_CONTENT);
+    }
+
   }
 }
